@@ -1,21 +1,10 @@
 use std::fmt;
 
 #[allow(dead_code)]
-enum DebugLevel {
+pub enum DebugLevel {
     INFO,
     WARN,
     ERROR,
-}
-
-#[macro_export]
-macro_rules! debug_print {
-    ($l:expr,$($fmt:tt)*) => {
-        match $l {
-            DebugLevel::INFO => println!("[{}]: {}","i".grey(),format!($($fmt)*)),
-            DebugLevel::WARN => eprintln!("[{}]: {}","w".yellow_bold(),format!($($fmt)*)),
-            DebugLevel::ERROR => eprintln!("[{}]: {}","e".red_bold(),format!($($fmt)*)),
-        }
-    };
 }
 
 ///  type to display terminal attributes
@@ -121,4 +110,20 @@ impl Attrs for &str {
     fn underline(&self) -> AttrDisplay {
         Self::set_attr("\x1b[4m", &self)
     }
+}
+
+#[macro_export]
+macro_rules! debug_print {
+    ($l:expr,$($fmt:tt)*) => {
+
+        match $l {
+
+            $crate::DebugLevel::INFO => println!("[{}]: {}",$crate::Attrs::grey(&"i"),format!($($fmt)*)),
+
+            $crate::DebugLevel::WARN => println!("[{}]: {}",$crate::Attrs::yellow_bold(&"w"),format!($($fmt)*)),
+
+            $crate::DebugLevel::ERROR => println!("[{}]: {}",$crate::Attrs::red_bold(&"e"),format!($($fmt)*)),
+
+        }
+    };
 }
