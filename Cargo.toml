@@ -6,4 +6,7 @@ license = "MIT"
 repository = "https://github.com/BayonetArch/simple_term_attr"
 readme = "README.md"
 description = "A very simple library to use some terminal attributes like colors."
+
 [dependencies]
+libc = "0.2.177"
+
