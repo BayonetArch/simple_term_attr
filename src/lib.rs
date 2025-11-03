@@ -11,7 +11,7 @@ use std::{
 const ESC: &'static str = "\x1b";
 
 #[allow(dead_code)]
-pub enum DebugLevel {
+pub enum LogLevel {
     INFO,
     WARN,
     ERROR,
@@ -94,7 +94,7 @@ impl DisplayAttribute {
 
         let res = unsafe { ioctl(fd, TIOCGWINSZ, &mut ws) };
         if res != 0 {
-            debug_print!(DebugLevel::ERROR, "ioctl syscall failed");
+            debug_print!(LogLevel::ERROR, "ioctl syscall failed");
             exit(1);
         }
 
@@ -198,16 +198,32 @@ impl StyleAttributes for &str {
 }
 
 #[macro_export]
+macro_rules! debug_println {
+    ($l:expr,$($fmt:tt)*) => {
+
+        match $l {
+
+            $crate::LogLevel::INFO => println!("[{}] {}",$crate::StyleAttributes::grey(&"i"),format!($($fmt)*)),
+
+            $crate::LogLevel::WARN => eprintln!("[{}] {}",$crate::StyleAttributes::yellow_bold(&"w"),format!($($fmt)*)),
+
+            $crate::LogLevel::ERROR => eprintln!("[{}] {}",$crate::StyleAttributes::red_bold(&"e"),format!($($fmt)*)),
+
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! debug_print {
     ($l:expr,$($fmt:tt)*) => {
 
         match $l {
 
-            $crate::DebugLevel::INFO => println!("[{}]: {}",$crate::StyleAttributes::grey(&"i"),format!($($fmt)*)),
+            $crate::LogLevel::INFO => print!("[{}] {}",$crate::StyleAttributes::grey(&"i"),format!($($fmt)*)),
 
-            $crate::DebugLevel::WARN => println!("[{}]: {}",$crate::StyleAttributes::yellow_bold(&"w"),format!($($fmt)*)),
+            $crate::LogLevel::WARN => eprint!("[{}] {}",$crate::StyleAttributes::yellow_bold(&"w"),format!($($fmt)*)),
 
-            $crate::DebugLevel::ERROR => println!("[{}]: {}",$crate::StyleAttributes::red_bold(&"e"),format!($($fmt)*)),
+            $crate::LogLevel::ERROR => eprint!("[{}] {}",$crate::StyleAttributes::red_bold(&"e"),format!($($fmt)*)),
 
         }
     };
