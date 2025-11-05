@@ -17,21 +17,21 @@ cargo add --git https://github.com/BayonetArch/simple_term_attr.git
 # Example 
 
 ```rust
-use simple_term_attr::{DisplayAttribute, StyleAttributes};
+use simple_term_attr::{TerminalAttribute, StyleAttributes};
 
 fn main() {
     println!("{}", "Red!".red());
     println!("{}", "underlined text".underline());
 
-    DisplayAttribute::clear_line(); //clears current line
-    DisplayAttribute::clear_screen(); //clear the screen
+    simple_term_attr::clear_line(); //clears current line
+    simple_term_attr::clear_screen(); //clear the screen
 
-    DisplayAttribute::hide_cursor();  // hide terminal cursor  
-    DisplayAttribute::show_cursor(); // show terminal cursor
+    simple_term_attr::hide_cursor();  // hide terminal cursor  
+    simple_term_attr::show_cursor(); // show terminal cursor
     
     let row = 10;
     let col = 20;
-    DisplayAttribute::move_cursor(row,col);  // move cursor to specified row and col
+    simple_term_attr::move_cursor(row,col);  // move cursor to specified row and col
 
 }
 ```
