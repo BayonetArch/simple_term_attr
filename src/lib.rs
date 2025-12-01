@@ -35,9 +35,10 @@ mod unix {
         let mut ws: WinSize = unsafe { zeroed() };
         let ret = unsafe { ioctl(0, TIOCGWINSZ, &mut ws) };
         if ret != 0 {
-            return Err("Could not get window size. 'ioctl' syscall failed.".into());
+            Err("Could not get window size. 'ioctl' syscall failed.".into())
+        } else {
+            Ok((ws.ws_row, ws.ws_col))
         }
-        Ok((ws.ws_row, ws.ws_col))
     }
 }
 
@@ -244,6 +245,46 @@ pub trait StyleAttributes {
         Self: Display,
     {
         let attr = format!("{ESC}[47m");
+        Self::set_attr(&attr, &self)
+    }
+
+    fn bg_red_bold(&self) -> TerminalAttribute<&Self>
+    where
+        Self: Display,
+    {
+        let attr = format!("{ESC}[1;41m");
+        Self::set_attr(&attr, &self)
+    }
+
+    fn bg_yellow_bold(&self) -> TerminalAttribute<&Self>
+    where
+        Self: Display,
+    {
+        let attr = format!("{ESC}[1;43m");
+        Self::set_attr(&attr, &self)
+    }
+
+    fn bg_green_bold(&self) -> TerminalAttribute<&Self>
+    where
+        Self: Display,
+    {
+        let attr = format!("{ESC}[1;42m");
+        Self::set_attr(&attr, &self)
+    }
+
+    fn bg_cyan_bold(&self) -> TerminalAttribute<&Self>
+    where
+        Self: Display,
+    {
+        let attr = format!("{ESC}[1;46m");
+        Self::set_attr(&attr, &self)
+    }
+
+    fn bg_grey_bold(&self) -> TerminalAttribute<&Self>
+    where
+        Self: Display,
+    {
+        let attr = format!("{ESC}[1;47m");
         Self::set_attr(&attr, &self)
     }
 }
