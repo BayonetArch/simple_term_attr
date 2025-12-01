@@ -22,7 +22,7 @@ dependencies = [
 
 [[package]]
 name = "simple_term_attr"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "windows",
 ]
