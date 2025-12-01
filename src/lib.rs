@@ -1,11 +1,9 @@
-use libc::{TIOCGWINSZ, ioctl};
 use std::{
-    fmt::{self, Debug, Display},
-    fs::File,
+    error::Error,
+    ffi::{c_int, c_ushort},
+    fmt::{self, Display},
     io::{self, Write, stdout},
-    mem,
-    os::fd::AsRawFd,
-    process::exit,
+    mem::zeroed,
 };
 
 const ESC: &'static str = "\x1b";
@@ -17,18 +15,76 @@ pub enum LogLevel {
     ERROR,
 }
 
+#[cfg(unix)]
+mod unix {
+    use super::*;
+    #[repr(C)]
+    struct WinSize {
+        ws_row: c_ushort,
+        ws_col: c_ushort,
+        ws_xpixel: c_ushort,
+        ws_ypixel: c_ushort,
+    }
+
+    const TIOCGWINSZ: c_int = 21523;
+    unsafe extern "C" {
+        fn ioctl(fd: c_int, request: c_int, ...) -> c_int;
+    }
+
+    pub fn get_terminal_size() -> Result<(u16, u16), Box<dyn Error>> {
+        let mut ws: WinSize = unsafe { zeroed() };
+        let ret = unsafe { ioctl(0, TIOCGWINSZ, &mut ws) };
+        if ret != 0 {
+            return Err("Could not get window size. 'ioctl' syscall failed.".into());
+        }
+        Ok((ws.ws_row, ws.ws_col))
+    }
+}
+
+#[cfg(windows)]
+mod windows {
+    use std::io;
+    use windows::Win32::System::Console::{
+        CONSOLE_SCREEN_BUFFER_INFO, GetConsoleScreenBufferInfo, GetStdHandle, STD_OUTPUT_HANDLE,
+    };
+
+    pub fn get_terminal_size() -> io::Result<(u16, u16)> {
+        unsafe {
+            let handle = GetStdHandle(STD_OUTPUT_HANDLE);
+            if handle.is_invalid() {
+                return Err(io::Error::last_os_error());
+            }
+
+            let mut csbi = CONSOLE_SCREEN_BUFFER_INFO::default();
+
+            if !GetConsoleScreenBufferInfo(handle, &mut csbi).as_bool() {
+                return Err(io::Error::last_os_error());
+            }
+
+            let width = (csbi.srWindow.Right - csbi.srWindow.Left + 1) as u16;
+            let height = (csbi.srWindow.Bottom - csbi.srWindow.Top + 1) as u16;
+
+            Ok((width, height))
+        }
+    }
+}
+
+/// get the current terminal size.returns a tuple of ws_row and ws_col
+pub fn get_terminal_size() -> Result<(u16, u16), Box<dyn Error>> {
+    #[cfg(unix)]
+    {
+        unix::get_terminal_size()
+    }
+    #[cfg(windows)]
+    {
+        windows::get_terminal_size()
+    }
+}
+
 ///  type to display terminal attributes
 pub struct TerminalAttribute<T: Display> {
     pub attr: String,
     pub val: T,
-}
-
-#[repr(C)]
-struct Winsize {
-    ws_row: u16,
-    ws_col: u16,
-    ws_xpixel: u16,
-    ws_ypixel: u16,
 }
 
 impl<T: Display> StyleAttributes for T {} //everything that implements a Display trait
@@ -135,6 +191,14 @@ pub trait StyleAttributes {
         Self::set_attr(&attr, &self)
     }
 
+    fn grey_bold(&self) -> TerminalAttribute<&Self>
+    where
+        Self: Display,
+    {
+        let attr = format!("{ESC}[1;90m");
+        Self::set_attr(&attr, &self)
+    }
+
     fn underline(&self) -> TerminalAttribute<&Self>
     where
         Self: Display,
@@ -142,38 +206,46 @@ pub trait StyleAttributes {
         let attr = format!("{ESC}[4m");
         Self::set_attr(&attr, &self)
     }
-}
 
-#[macro_export]
-macro_rules! debug_println {
-    ($l:expr,$($fmt:tt)*) => {
+    fn bg_red(&self) -> TerminalAttribute<&Self>
+    where
+        Self: Display,
+    {
+        let attr = format!("{ESC}[41m");
+        Self::set_attr(&attr, &self)
+    }
 
-        match $l {
+    fn bg_yellow(&self) -> TerminalAttribute<&Self>
+    where
+        Self: Display,
+    {
+        let attr = format!("{ESC}[43m");
+        Self::set_attr(&attr, &self)
+    }
 
-            $crate::LogLevel::INFO => println!("[{}] {}",$crate::StyleAttributes::grey(&"i"),format!($($fmt)*)),
+    fn bg_green(&self) -> TerminalAttribute<&Self>
+    where
+        Self: Display,
+    {
+        let attr = format!("{ESC}[42m");
+        Self::set_attr(&attr, &self)
+    }
 
-            $crate::LogLevel::WARN => eprintln!("[{}] {}",$crate::StyleAttributes::yellow_bold(&"w"),format!($($fmt)*)),
+    fn bg_cyan(&self) -> TerminalAttribute<&Self>
+    where
+        Self: Display,
+    {
+        let attr = format!("{ESC}[46m");
+        Self::set_attr(&attr, &self)
+    }
 
-            $crate::LogLevel::ERROR => eprintln!("[{}] {}",$crate::StyleAttributes::red_bold(&"e"),format!($($fmt)*)),
-
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! debug_print {
-    ($l:expr,$($fmt:tt)*) => {
-
-        match $l {
-
-            $crate::LogLevel::INFO => print!("[{}] {}",$crate::StyleAttributes::grey(&"i"),format!($($fmt)*)),
-
-            $crate::LogLevel::WARN => eprint!("[{}] {}",$crate::StyleAttributes::yellow_bold(&"w"),format!($($fmt)*)),
-
-            $crate::LogLevel::ERROR => eprint!("[{}] {}",$crate::StyleAttributes::red_bold(&"e"),format!($($fmt)*)),
-
-        }
-    };
+    fn bg_grey(&self) -> TerminalAttribute<&Self>
+    where
+        Self: Display,
+    {
+        let attr = format!("{ESC}[47m");
+        Self::set_attr(&attr, &self)
+    }
 }
 
 /// clear current line
@@ -227,21 +299,6 @@ pub fn hide_cursor() -> io::Result<()> {
 pub fn show_cursor() -> io::Result<()> {
     print!("{ESC}[?25h");
     stdout().flush()
-}
-
-// get the current terminal size.returns a tuple of ws_row and ws_col
-pub fn get_terminal_size() -> (u16, u16) {
-    let stdout = File::open("/dev/tty").unwrap();
-    let fd = stdout.as_raw_fd();
-    let mut ws: Winsize = unsafe { mem::zeroed() };
-
-    let res = unsafe { ioctl(fd, TIOCGWINSZ, &mut ws) };
-    if res != 0 {
-        debug_print!(LogLevel::ERROR, "ioctl syscall failed");
-        exit(1);
-    }
-
-    (ws.ws_col, ws.ws_row)
 }
 
 pub fn set_scrollable_region(col: u16, row: u16) -> io::Result<()> {
