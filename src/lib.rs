@@ -200,6 +200,22 @@ pub trait StyleAttributes {
         Self::set_attr(&attr, &self)
     }
 
+    fn cyan(&self) -> TerminalAttribute<&Self>
+    where
+        Self: Display,
+    {
+        let attr = format!("{ESC}[36m");
+        Self::set_attr(&attr, &self)
+    }
+
+    fn cyan_bold(&self) -> TerminalAttribute<&Self>
+    where
+        Self: Display,
+    {
+        let attr = format!("{ESC}[1;36m");
+        Self::set_attr(&attr, &self)
+    }
+
     fn underline(&self) -> TerminalAttribute<&Self>
     where
         Self: Display,
